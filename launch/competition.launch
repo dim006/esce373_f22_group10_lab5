@@ -1,3 +1,0 @@
-<launch>
-    <include file="$(find ecse_373_ariac)/launch/ecse_373_ariac.launch" />
-</launch>
