@@ -7,18 +7,19 @@
 #include "osrf_gear/LogicalCameraImage.h"
 #include "osrf_gear/StorageUnit.h"
 #include "osrf_gear/Order.h"
+#include "osrf_gear/AGVControl.h"
 #include "ur_kinematics/ur_kin.h"
 #include "sensor_msgs/JointState.h"
 #include "trajectory_msgs/JointTrajectory.h"
 
-<<<<<<< HEAD
 #include "actionlib/client/simple_action_client.h"
 #include "actionlib/client/terminal_state.h"
 
 #include "control_msgs/FollowJointTrajectoryAction.h"
 
-=======
->>>>>>> 4f7902449b40e579d2e8dfa8f64daf10e1f3bfaa
+#include "osrf_gear/VacuumGripperControl.h"
+#include "osrf_gear/VacuumGripperState.h"
+
 //Global variables
 //Begins competition
 std_srvs::Trigger begin_comp; 
@@ -41,7 +42,6 @@ trajectory_msgs::JointTrajectory joint_trajectory;
 //Create variables for use with Kinematics
 double T_pose[4][4], T_des[4][4];
 double q_pose[6], q_des[8][6];
-<<<<<<< HEAD
 //logical camera fram to arm transform checker
 geometry_msgs::TransformStamped tfStamped;
 //Desired joint end position
@@ -56,18 +56,23 @@ control_msgs::FollowJointTrajectoryAction joint_trajectory_as;
 //Product type of material
 std::string product_type;
 //Position vector of all part locations
-std::vector<geometry_msgs::Pose> position_vector;
+geometry_msgs::Pose position_vector;
 //Frame vector of part locations, corresponds with position_vector
-std::vector<std::string> camera_frame_vector;
+std::string camera_frame_vector;
+//Stores the gripper state
+osrf_gear::VacuumGripperState gripper_state;
+//Stores gripper control
+osrf_gear::VacuumGripperControl gripper_control;
+//Stores agv control
+osrf_gear::AGVControl agv_command;
+bool agv_response;
+//Stores if gripper should be on/off
+bool gripper_success;
 //For loop variables
 int i;
 int j;
-=======
-//Desired joint trajectory
-//trajectory_msgs::JointTrajectory desired;
-//Desired joint end position
-geometry_msgs::Pose desired_position;
->>>>>>> 4f7902449b40e579d2e8dfa8f64daf10e1f3bfaa
+float arm_base_location;
+int count = 0;
 
 //Order callback
 void orderCallback(const osrf_gear::Order::ConstPtr &order)
@@ -144,16 +149,17 @@ void qc2Callback(const osrf_gear::LogicalCameraImage::ConstPtr &image)
 //Joint state callback
 void jointCB(const sensor_msgs::JointState::ConstPtr &joint_msgs)
 {
-	joint_states.header = joint_msgs->header;
-	joint_states.name = joint_msgs->name;
-	joint_states.position = joint_msgs->position;
-	joint_states.velocity = joint_msgs->velocity;
-	joint_states.effort = joint_msgs->effort;
+	joint_states = *joint_msgs;
 }
 
-<<<<<<< HEAD
+//Gripper callback
+void gripperCallback(const osrf_gear::VacuumGripperState::ConstPtr &state)
+{
+	gripper_state = *state;
+}
+
 //Gets all the positions of product_type and stores them in position_vector
-std::vector<geometry_msgs::Pose> productPosition(std::string product_type)
+geometry_msgs::Pose productPosition()
 {
 	for(i = 0; i < image_vector.size(); i++)
 			{
@@ -161,44 +167,42 @@ std::vector<geometry_msgs::Pose> productPosition(std::string product_type)
 				{
 					if(image_vector[i].models[j].type == product_type)
 					{
-						position_vector.push_back(image_vector[i].models[j].pose);
+						position_vector = image_vector[i].models[j].pose;
 						std::string temp = "logical_camera_bin" + std::to_string(i+1) + "_frame";
-						camera_frame_vector.push_back(temp);
-						ROS_WARN("position_vector size is %s", std::to_string(position_vector.size()).c_str());
+						camera_frame_vector = temp;
+						i = 1000;
+						break;
 					}
 				}
 			}
-	for(i = 0; i < camera_frame_vector.size(); i++)
-	{
-		ROS_WARN("camera_frame_vector value is %s", camera_frame_vector[i].c_str());
-	}
 	return position_vector;
 }
 
 //TF2 transform from Camera to Arm positions
-geometry_msgs::PoseStamped cameraConvert(geometry_msgs::PoseStamped camera_part_pose)
+geometry_msgs::PoseStamped cameraConvert()
 {
+	//"arm1_base_link"
 	try {
-		tfStamped = tfBuffer.lookupTransform("arm1_base_link", camera_frame_vector[0], ros::Time(0.0), ros::Duration(1.0));
-		ROS_DEBUG("Transform from [%s] to [%s]", tfStamped.child_frame_id.c_str(), tfStamped.header.frame_id.c_str());
+		tfStamped = tfBuffer.lookupTransform("arm1_base_link", camera_frame_vector, ros::Time(0.0), ros::Duration(7.5));
+		ROS_WARN("Transform from [%s] to [%s]", tfStamped.child_frame_id.c_str(), tfStamped.header.frame_id.c_str());
 	}
 	catch(tf2::TransformException &ex) {
 		ROS_ERROR("%s", ex.what());
 	}
 
-	tf2::doTransform(camera_part_pose, arm_part_pose, tfStamped);
 
-	arm_part_pose.pose.position.z += .1;
-	arm_part_pose.pose.orientation.w = .707;
-	arm_part_pose.pose.orientation.x = 0;
-	arm_part_pose.pose.orientation.y = .707;
-	arm_part_pose.pose.orientation.z = 0;
+	tf2::doTransform(part_position_pose, arm_part_pose, tfStamped);
+
+
+	arm_part_pose.pose.position.z += 0.02;
+	//arm_part_pose.pose.orientation.w = .707;
+	//arm_part_pose.pose.orientation.x = 0.0;
+	//arm_part_pose.pose.orientation.y = .707;
+	//arm_part_pose.pose.orientation.z = 0.0;
 
 	return arm_part_pose;
 }
 
-=======
->>>>>>> 4f7902449b40e579d2e8dfa8f64daf10e1f3bfaa
 //Creates a Joint Trajectory based on current and desired location
 trajectory_msgs::JointTrajectory jointTrajectory()
 {
@@ -214,11 +218,7 @@ trajectory_msgs::JointTrajectory jointTrajectory()
 	// Desired pose of the end effector wrt the base_link.
 	T_des[0][3] = desired_position.position.x;
 	T_des[1][3] = desired_position.position.y;
-<<<<<<< HEAD
 	T_des[2][3] = desired_position.position.z;
-=======
-	T_des[2][3] = desired_position.position.z + 0.3;
->>>>>>> 4f7902449b40e579d2e8dfa8f64daf10e1f3bfaa
 	T_des[3][3] = 1.0;
 	// The orientation of the end effector so that the end effector is down.
 	T_des[0][0] = 0.0; T_des[0][1] = -1.0; T_des[0][2] = 0.0;
@@ -230,14 +230,9 @@ trajectory_msgs::JointTrajectory jointTrajectory()
 
 	// Fill out the joint trajectory header.
 	// Each joint trajectory should have an non-monotonically increasing sequence number.
-	int count = 0;
 	joint_trajectory.header.seq = count++;
 	joint_trajectory.header.stamp = ros::Time::now(); // When was this message created.
-<<<<<<< HEAD
-	joint_trajectory.header.frame_id = "/base_link"; // Frame in which this is specified.
-=======
 	joint_trajectory.header.frame_id = "/world"; // Frame in which this is specified.
->>>>>>> 4f7902449b40e579d2e8dfa8f64daf10e1f3bfaa
 	// Set the names of the joints being used. All must be present.
 	joint_trajectory.joint_names.clear();
 	joint_trajectory.joint_names.push_back("linear_arm_actuator_joint");
@@ -261,9 +256,8 @@ trajectory_msgs::JointTrajectory jointTrajectory()
 		}
 	}
 	// When to start (immediately upon receipt).
-	joint_trajectory.points[0].time_from_start = ros::Duration(0.0);
+	joint_trajectory.points[0].time_from_start = ros::Duration(0.1);
 	// Must select which of the num_sols solutions to use. Just start with the first.
-<<<<<<< HEAD
 	int q_des_indx = 0;
 	for(i = 0; i < 8; i++)
 	{
@@ -276,20 +270,13 @@ trajectory_msgs::JointTrajectory jointTrajectory()
 	// Set the end point for the movement
 	joint_trajectory.points[1].positions.resize(joint_trajectory.joint_names.size());
 	// Set the linear_arm_actuator_joint from joint_states as it is not part of the inverse kinematics solution.
-	joint_trajectory.points[1].positions[0] = joint_states.position[1];
-=======
-	int q_des_indx = 8;
-	// Set the end point for the movement
-	joint_trajectory.points[1].positions.resize(joint_trajectory.joint_names.size());
-	// Set the linear_arm_actuator_joint from joint_states as it is not part of the inverse kinematics solution.
-	joint_trajectory.points[1].positions[0] = joint_states.position[0];
->>>>>>> 4f7902449b40e579d2e8dfa8f64daf10e1f3bfaa
+	joint_trajectory.points[1].positions[0] = arm_base_location;
 	// The actuators are commanded in an odd order, enter the joint positions in the correct positions
 	for (int indy = 0; indy < 6; indy++) {
 		joint_trajectory.points[1].positions[indy + 1] = q_des[q_des_indx][indy];
 	}
 	// How long to take for the movement.
-	joint_trajectory.points[1].time_from_start = ros::Duration(1.0);
+	joint_trajectory.points[1].time_from_start = ros::Duration(7.5);
 	return joint_trajectory;
 }
 
@@ -320,10 +307,10 @@ int main(int argc, char **argv)
 	//All Subscriptions
 	ros::ServiceClient begin_client = n.serviceClient<std_srvs::Trigger>("ariac/start_competition");
 	ros::Subscriber order_subscriber = n.subscribe("ariac/orders",1000,orderCallback);
-	ros::ServiceClient material_client = n.serviceClient<osrf_gear::GetMaterialLocations>("ariac/material_locations");
 	ros::Subscriber joint_states_sub = n.subscribe("ariac/arm1/joint_states", 10, jointCB);
+	ros::ServiceClient gripper_client = n.serviceClient<osrf_gear::VacuumGripperControl>("ariac/arm1/gripper/control");
+	ros::Subscriber gripper_state_sub = n.subscribe("ariac/arm1/gripper/state", 10, gripperCallback);
 	//All Camera Subscriptions
-<<<<<<< HEAD
 	ros::Subscriber bin1_sub = n.subscribe("ariac/logical_camera_bin1",10,bin1Callback);
 	ros::Subscriber bin2_sub = n.subscribe("ariac/logical_camera_bin2",10,bin2Callback);
 	ros::Subscriber bin3_sub = n.subscribe("ariac/logical_camera_bin3",10,bin3Callback);
@@ -336,30 +323,9 @@ int main(int argc, char **argv)
 	ros::Subscriber qc2_sub = n.subscribe("ariac/quality_control_sensor_2",10,qc2Callback);
 	//Publishes joint trajectory to the arm1 command
 	ros::Publisher joint_trajectory_pub = n.advertise<trajectory_msgs::JointTrajectory>("ariac/arm1/arm/command",10);
-=======
-	ros::Subscriber bin1_sub = n.subscribe("ariac/logical_camera_bin1",1,bin1Callback);
-	ros::Subscriber bin2_sub = n.subscribe("ariac/logical_camera_bin2",1,bin2Callback);
-	ros::Subscriber bin3_sub = n.subscribe("ariac/logical_camera_bin3",1,bin3Callback);
-	ros::Subscriber bin4_sub = n.subscribe("ariac/logical_camera_bin4",1,bin4Callback);
-	ros::Subscriber bin5_sub = n.subscribe("ariac/logical_camera_bin5",1,bin5Callback);
-	ros::Subscriber bin6_sub = n.subscribe("ariac/logical_camera_bin6",1,bin6Callback);
-	ros::Subscriber agv1_sub = n.subscribe("ariac/logical_camera_agv1",1,agv1Callback);
-	ros::Subscriber agv2_sub = n.subscribe("ariac/logical_camera_agv2",1,agv2Callback);
-	ros::Subscriber qc1_sub = n.subscribe("ariac/quality_control_sensor_1",1,qc1Callback);
-	ros::Subscriber qc2_sub = n.subscribe("ariac/quality_control_sensor_2",1,qc2Callback);
-	//Publishes joint trajectory to the arm1 command
-	ros::Publisher joint_trajectory_pub = n.advertise<trajectory_msgs::JointTrajectory>("ariac/arm1/arm/command",10);
-
->>>>>>> 4f7902449b40e579d2e8dfa8f64daf10e1f3bfaa
-	//Current default location, will be updated later to be automatic based on part location
-	desired_position.position.x = 1;
-	desired_position.position.y = 1;
-	desired_position.position.z = 1;
-<<<<<<< HEAD
+	ros::ServiceClient agv1_client = n.serviceClient<osrf_gear::AGVControlRequest>("ariac/agv1");
+	ros::ServiceClient agv2_client = n.serviceClient<osrf_gear::AGVControlRequest>("ariac/agv2");
 	double currentTime;
-=======
-
->>>>>>> 4f7902449b40e579d2e8dfa8f64daf10e1f3bfaa
 	//Tracks if competition has begun
 	service_call_succeeded = begin_client.call(begin_comp);
 
@@ -387,67 +353,182 @@ int main(int argc, char **argv)
 
   while(ros::ok())
 	{
-<<<<<<< HEAD
-=======
-		loop_rate.sleep();
->>>>>>> 4f7902449b40e579d2e8dfa8f64daf10e1f3bfaa
 
 		//If we have orders
 		if(order_vector.size() > 0)
 		{
 			//Current time in seconds from start
 			currentTime = ros::Time::now().toSec();
-			//Gives current joint positions and time
-			ROS_INFO_THROTTLE(10,"Current Joint States: 0: %s, 1: %s, 2: %s, 3: %s, 4: %s, 5: %s, 6: %s; Time: %f", joint2String(joint_states, 0).c_str(), joint2String(joint_states, 1).c_str(), joint2String(joint_states, 2).c_str(), joint2String(joint_states, 3).c_str(), joint2String(joint_states, 4).c_str(), joint2String(joint_states, 5).c_str(), joint2String(joint_states, 6).c_str(), currentTime);
-			//Gets current order object type (turn into order loop later)
-			material_location.request.material_type = order_vector.front().shipments.front().products.front().type;
-			//Checks if location call worked
-			location_call_succeeded = material_client.call(material_location);
-			//Gives current order object type (make into loop later)
-			ROS_INFO("The object is type: %s", material_location.request.material_type.c_str());
-			//Create loop here to check for all storage units w/ object
-			ROS_INFO("The storage unit containing this object: %s", material_location.response.storage_units.front().unit_id.c_str());
-			product_type = material_location.request.material_type;
-			//ROS_INFO("Bin %i has %li", (3+1), image_vector[3].models.size());
-			for(i = 0; i < image_vector.size(); i++)
+			//Full logic for determining orders, shipments, and parts; how we pick them up; and how we deliver them
+			while(order_vector.size() > 0)
 			{
-				//ROS_INFO_THROTTLE(0, "Image # %i", i);
-				for(j = 0; j < image_vector[i].models.size(); j++)
+				for(int idx = 0; idx < order_vector.size(); idx++)
 				{
-					//ROS_INFO_THROTTLE(0, "Model # %i", j);
-					if(image_vector[i].models[j].type == product_type)
+					ROS_WARN("Order Vector Size is %s", std::to_string(order_vector.size()).c_str());
+					for(int jdx = 0; jdx < order_vector[idx].shipments.size(); jdx++)
 					{
-						ROS_WARN("Product type: %s, Bin: %s, %s", product_type.c_str(), std::to_string(i+1).c_str(), pose2String(image_vector[i].models[j].pose).c_str());
+						ROS_WARN("Order Vector Shipment Size is %s", std::to_string(order_vector[idx].shipments.size()).c_str());
+						for(int kdx = 0; kdx < order_vector[idx].shipments[jdx].products.size(); kdx++)
+						{
+							ROS_INFO_THROTTLE(10,"Current Joint States: 0: %s, 1: %s, 2: %s, 3: %s, 4: %s, 5: %s, 6: %s; Time: %f", joint2String(joint_states, 0).c_str(), joint2String(joint_states, 1).c_str(), joint2String(joint_states, 2).c_str(), joint2String(joint_states, 3).c_str(), joint2String(joint_states, 4).c_str(), joint2String(joint_states, 5).c_str(), joint2String(joint_states, 6).c_str(), currentTime);
+							ROS_WARN("Order Vector Products Size is %s", std::to_string(order_vector[idx].shipments[jdx].products.size()).c_str());
+							//Gets part type
+							material_location.request.material_type = order_vector[idx].shipments[jdx].products[kdx].type;
+							ROS_WARN("Shipment type: %s, AGV_ID %s", order_vector[idx].shipments[jdx].shipment_type.c_str(), order_vector[idx].shipments[jdx].agv_id.c_str());
+							//Sets product_type equal to the requested material type
+							product_type = material_location.request.material_type;
+							//Gets one position of requested product type
+							productPosition();
+							desired_position.position.x = -.4;
+							desired_position.position.y = .2;
+							desired_position.position.z = .1;
+							if(product_type == "piston_rod_part")
+							{
+								arm_base_location = -.1;
+							}	
+							if(product_type == "gear_part")
+							{
+								arm_base_location = 1.6;
+							}
+							jointTrajectory();
+							joint_trajectory_as.action_goal.goal.trajectory = joint_trajectory;
+							//Publishes joint trajectory to action server
+							actionlib::SimpleClientGoalState state = trajectory_as.sendGoalAndWait(joint_trajectory_as.action_goal.goal, ros::Duration(30.0), ros::Duration(30.0));
+							//Returns action server SUCCESS/ABORT
+							ROS_INFO("Action Server returned with status: [%i] %s", state.state_, state.toString().c_str());
+							ros::Duration(1.0).sleep();
+							//Converts pose to pose stamped for part position
+							part_position_pose.pose = position_vector;
+							//TF2 convert part coords from logical camera to arm base, sets +.1 cm above desired part
+							cameraConvert();
+							//Sets new coords as the desired arm end point
+							desired_position = arm_part_pose.pose;
+							desired_position.position.y += .02;
+							//Runs math to find arm pathing solution
+							jointTrajectory();
+							//Sets action server goal as the discovered joint trajectory
+							joint_trajectory_as.action_goal.goal.trajectory = joint_trajectory;
+							//Publishes joint trajectory to action server
+							state = trajectory_as.sendGoalAndWait(joint_trajectory_as.action_goal.goal, ros::Duration(30.0), ros::Duration(30.0));
+							//Returns action server SUCCESS/ABORT
+							ROS_INFO("Action Server returned with status: [%i] %s", state.state_, state.toString().c_str());
+							//Waits for a few seconds
+							ros::Duration(1.0).sleep();
+							//Turn on vacuum gripper
+							while(gripper_state.attached != true)
+							{
+								gripper_control.request.enable = true;
+								gripper_client.call(gripper_control);
+								ros::Duration(.5).sleep();
+							}
+							//Go to home point
+							desired_position.position.x = -.4;
+							desired_position.position.y = .2;
+							desired_position.position.z = .1;
+							jointTrajectory();
+							joint_trajectory_as.action_goal.goal.trajectory = joint_trajectory;
+							//Publishes joint trajectory to action server
+							state = trajectory_as.sendGoalAndWait(joint_trajectory_as.action_goal.goal, ros::Duration(30.0), ros::Duration(30.0));
+							//Returns action server SUCCESS/ABORT
+							ROS_INFO("Action Server returned with status: [%i] %s", state.state_, state.toString().c_str());
+							ros::Duration(1.0).sleep();
+							//Sets AGV as new desired drop off point
+							if(order_vector[idx].shipments[jdx].agv_id == "agv1" || order_vector[idx].shipments[jdx].agv_id == "any")
+							{
+								arm_base_location = 1.99;
+								jointTrajectory();
+								joint_trajectory_as.action_goal.goal.trajectory = joint_trajectory;
+								//Publishes joint trajectory to action server
+								state = trajectory_as.sendGoalAndWait(joint_trajectory_as.action_goal.goal, ros::Duration(30.0), ros::Duration(30.0));
+								//Returns action server SUCCESS/ABORT
+								ROS_INFO("Action Server returned with status: [%i] %s", state.state_, state.toString().c_str());
+								ros::Duration(1.0).sleep();
+								part_position_pose.pose = order_vector[idx].shipments[jdx].products[kdx].pose;
+								camera_frame_vector = "kit_tray_1";
+								cameraConvert();
+								desired_position = arm_part_pose.pose;
+								desired_position.position.z += .1;
+								jointTrajectory();
+								joint_trajectory_as.action_goal.goal.trajectory = joint_trajectory;
+								//Publishes joint trajectory to action server
+								actionlib::SimpleClientGoalState state = trajectory_as.sendGoalAndWait(joint_trajectory_as.action_goal.goal, ros::Duration(30.0), ros::Duration(30.0));
+								//Returns action server SUCCESS/ABORT
+								ROS_INFO("Action Server returned with status: [%i] %s", state.state_, state.toString().c_str());
+								ros::Duration(1.0).sleep();
+								//Turn off vacuum gripper
+								while(gripper_state.attached != false)
+								{
+									gripper_control.request.enable = false;
+									gripper_client.call(gripper_control);
+									ros::Duration(.5).sleep();
+								}
+							}
+							if(order_vector[idx].shipments[jdx].agv_id == "agv2")
+							{
+								arm_base_location = -1.99;
+								jointTrajectory();
+								joint_trajectory_as.action_goal.goal.trajectory = joint_trajectory;
+								//Publishes joint trajectory to action server
+								state = trajectory_as.sendGoalAndWait(joint_trajectory_as.action_goal.goal, ros::Duration(30.0), ros::Duration(30.0));
+								//Returns action server SUCCESS/ABORT
+								ROS_INFO("Action Server returned with status: [%i] %s", state.state_, state.toString().c_str());
+								ros::Duration(1.0).sleep();
+								part_position_pose.pose = order_vector[idx].shipments[jdx].products[kdx].pose;
+								camera_frame_vector = "kit_tray_2";
+								cameraConvert();
+								desired_position = arm_part_pose.pose;
+								desired_position.position.z += .1;
+								jointTrajectory();
+								joint_trajectory_as.action_goal.goal.trajectory = joint_trajectory;
+								//Publishes joint trajectory to action server
+								actionlib::SimpleClientGoalState state = trajectory_as.sendGoalAndWait(joint_trajectory_as.action_goal.goal, ros::Duration(30.0), ros::Duration(30.0));
+								//Returns action server SUCCESS/ABORT
+								ROS_INFO("Action Server returned with status: [%i] %s", state.state_, state.toString().c_str());
+								ros::Duration(1.0).sleep();
+								while(gripper_state.attached != false)
+								{
+									gripper_control.request.enable = false;
+									gripper_client.call(gripper_control);
+									ros::Duration(.5).sleep();
+								}
+								desired_position.position.x = -.4;
+								desired_position.position.y = .2;
+								desired_position.position.z = .1;
+								arm_base_location = -1.99;
+								jointTrajectory();
+								joint_trajectory_as.action_goal.goal.trajectory = joint_trajectory;
+								state = trajectory_as.sendGoalAndWait(joint_trajectory_as.action_goal.goal, ros::Duration(30.0), ros::Duration(30.0));
+								//Returns action server SUCCESS/ABORT
+								ROS_INFO("Action Server returned with status: [%i] %s", state.state_, state.toString().c_str());
+								ros::Duration(1.0).sleep();
+							}
+							//Check if shipment should be submitted
+							if((kdx + 1) == order_vector[idx].shipments[jdx].products.size())
+							{
+								//Submit Order AGV1
+								if(order_vector[idx].shipments[jdx].agv_id == "agv1" || order_vector[idx].shipments[jdx].agv_id == "any")
+								{
+									agv_command.request.shipment_type = order_vector[idx].shipments[jdx].shipment_type;
+									agv_response = agv1_client.call(agv_command);
+									ROS_WARN("AGV response is: %s", std::to_string(agv_response).c_str());
+									ros::Duration(1.0).sleep();
+								}
+								//Submit Order AGV2
+								if(order_vector[idx].shipments[jdx].agv_id == "agv2")
+								{
+									agv_command.request.shipment_type = order_vector[idx].shipments[jdx].shipment_type;
+									agv_response = agv2_client.call(agv_command);
+									ROS_WARN("AGV response is: %s", std::to_string(agv_response).c_str());
+									ros::Duration(1.0).sleep();
+								}
+							}
+
+						}
 					}
 				}
 			}
-			//Calls joint trajectory to determine new position based on the set desired position. Currently set by default to 1,1,1
-<<<<<<< HEAD
-			//jointTrajectory();
-			//Publishes the new location to gazebo and executes the move
-			//joint_trajectory_pub.publish(joint_trajectory);
-			productPosition(product_type);
-			while(position_vector.size() > 0)
-			{
-				part_position_pose.pose = position_vector[0];
-				cameraConvert(part_position_pose);
-				desired_position = arm_part_pose.pose;
-				jointTrajectory();
-				//joint_trajectory_pub.publish(joint_trajectory);
-				joint_trajectory_as.action_goal.goal.trajectory = joint_trajectory;
-				actionlib::SimpleClientGoalState state = trajectory_as.sendGoalAndWait(joint_trajectory_as.action_goal.goal, ros::Duration(30.0), ros::Duration(30.0));
-				ROS_INFO("Action Server returned with status: [%i] %s", state.state_, state.toString().c_str());
-				position_vector.erase(position_vector.begin());
-				camera_frame_vector.erase(camera_frame_vector.begin());
-				ros::Duration(1.5).sleep();
-			}
-=======
-			jointTrajectory();
-			//Publishes the new location to gazebo and executes the move
-			joint_trajectory_pub.publish(joint_trajectory);
->>>>>>> 4f7902449b40e579d2e8dfa8f64daf10e1f3bfaa
 		}
-		ros::Duration(0.1).sleep();
+		ros::Duration(.5).sleep();
 	}
   return 0;
 }
