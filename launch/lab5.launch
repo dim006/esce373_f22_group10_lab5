@@ -1,3 +1,0 @@
-<launch>
-    <node pkg="lab_5" type="lab_5_node" name="ariac_node" output="screen" />
-</launch>
