@@ -11,11 +11,14 @@
 #include "sensor_msgs/JointState.h"
 #include "trajectory_msgs/JointTrajectory.h"
 
+<<<<<<< HEAD
 #include "actionlib/client/simple_action_client.h"
 #include "actionlib/client/terminal_state.h"
 
 #include "control_msgs/FollowJointTrajectoryAction.h"
 
+=======
+>>>>>>> 4f7902449b40e579d2e8dfa8f64daf10e1f3bfaa
 //Global variables
 //Begins competition
 std_srvs::Trigger begin_comp; 
@@ -38,6 +41,7 @@ trajectory_msgs::JointTrajectory joint_trajectory;
 //Create variables for use with Kinematics
 double T_pose[4][4], T_des[4][4];
 double q_pose[6], q_des[8][6];
+<<<<<<< HEAD
 //logical camera fram to arm transform checker
 geometry_msgs::TransformStamped tfStamped;
 //Desired joint end position
@@ -58,6 +62,12 @@ std::vector<std::string> camera_frame_vector;
 //For loop variables
 int i;
 int j;
+=======
+//Desired joint trajectory
+//trajectory_msgs::JointTrajectory desired;
+//Desired joint end position
+geometry_msgs::Pose desired_position;
+>>>>>>> 4f7902449b40e579d2e8dfa8f64daf10e1f3bfaa
 
 //Order callback
 void orderCallback(const osrf_gear::Order::ConstPtr &order)
@@ -141,6 +151,7 @@ void jointCB(const sensor_msgs::JointState::ConstPtr &joint_msgs)
 	joint_states.effort = joint_msgs->effort;
 }
 
+<<<<<<< HEAD
 //Gets all the positions of product_type and stores them in position_vector
 std::vector<geometry_msgs::Pose> productPosition(std::string product_type)
 {
@@ -186,6 +197,8 @@ geometry_msgs::PoseStamped cameraConvert(geometry_msgs::PoseStamped camera_part_
 	return arm_part_pose;
 }
 
+=======
+>>>>>>> 4f7902449b40e579d2e8dfa8f64daf10e1f3bfaa
 //Creates a Joint Trajectory based on current and desired location
 trajectory_msgs::JointTrajectory jointTrajectory()
 {
@@ -201,7 +214,11 @@ trajectory_msgs::JointTrajectory jointTrajectory()
 	// Desired pose of the end effector wrt the base_link.
 	T_des[0][3] = desired_position.position.x;
 	T_des[1][3] = desired_position.position.y;
+<<<<<<< HEAD
 	T_des[2][3] = desired_position.position.z;
+=======
+	T_des[2][3] = desired_position.position.z + 0.3;
+>>>>>>> 4f7902449b40e579d2e8dfa8f64daf10e1f3bfaa
 	T_des[3][3] = 1.0;
 	// The orientation of the end effector so that the end effector is down.
 	T_des[0][0] = 0.0; T_des[0][1] = -1.0; T_des[0][2] = 0.0;
@@ -216,7 +233,11 @@ trajectory_msgs::JointTrajectory jointTrajectory()
 	int count = 0;
 	joint_trajectory.header.seq = count++;
 	joint_trajectory.header.stamp = ros::Time::now(); // When was this message created.
+<<<<<<< HEAD
 	joint_trajectory.header.frame_id = "/base_link"; // Frame in which this is specified.
+=======
+	joint_trajectory.header.frame_id = "/world"; // Frame in which this is specified.
+>>>>>>> 4f7902449b40e579d2e8dfa8f64daf10e1f3bfaa
 	// Set the names of the joints being used. All must be present.
 	joint_trajectory.joint_names.clear();
 	joint_trajectory.joint_names.push_back("linear_arm_actuator_joint");
@@ -242,6 +263,7 @@ trajectory_msgs::JointTrajectory jointTrajectory()
 	// When to start (immediately upon receipt).
 	joint_trajectory.points[0].time_from_start = ros::Duration(0.0);
 	// Must select which of the num_sols solutions to use. Just start with the first.
+<<<<<<< HEAD
 	int q_des_indx = 0;
 	for(i = 0; i < 8; i++)
 	{
@@ -255,6 +277,13 @@ trajectory_msgs::JointTrajectory jointTrajectory()
 	joint_trajectory.points[1].positions.resize(joint_trajectory.joint_names.size());
 	// Set the linear_arm_actuator_joint from joint_states as it is not part of the inverse kinematics solution.
 	joint_trajectory.points[1].positions[0] = joint_states.position[1];
+=======
+	int q_des_indx = 8;
+	// Set the end point for the movement
+	joint_trajectory.points[1].positions.resize(joint_trajectory.joint_names.size());
+	// Set the linear_arm_actuator_joint from joint_states as it is not part of the inverse kinematics solution.
+	joint_trajectory.points[1].positions[0] = joint_states.position[0];
+>>>>>>> 4f7902449b40e579d2e8dfa8f64daf10e1f3bfaa
 	// The actuators are commanded in an odd order, enter the joint positions in the correct positions
 	for (int indy = 0; indy < 6; indy++) {
 		joint_trajectory.points[1].positions[indy + 1] = q_des[q_des_indx][indy];
@@ -294,6 +323,7 @@ int main(int argc, char **argv)
 	ros::ServiceClient material_client = n.serviceClient<osrf_gear::GetMaterialLocations>("ariac/material_locations");
 	ros::Subscriber joint_states_sub = n.subscribe("ariac/arm1/joint_states", 10, jointCB);
 	//All Camera Subscriptions
+<<<<<<< HEAD
 	ros::Subscriber bin1_sub = n.subscribe("ariac/logical_camera_bin1",10,bin1Callback);
 	ros::Subscriber bin2_sub = n.subscribe("ariac/logical_camera_bin2",10,bin2Callback);
 	ros::Subscriber bin3_sub = n.subscribe("ariac/logical_camera_bin3",10,bin3Callback);
@@ -306,11 +336,30 @@ int main(int argc, char **argv)
 	ros::Subscriber qc2_sub = n.subscribe("ariac/quality_control_sensor_2",10,qc2Callback);
 	//Publishes joint trajectory to the arm1 command
 	ros::Publisher joint_trajectory_pub = n.advertise<trajectory_msgs::JointTrajectory>("ariac/arm1/arm/command",10);
+=======
+	ros::Subscriber bin1_sub = n.subscribe("ariac/logical_camera_bin1",1,bin1Callback);
+	ros::Subscriber bin2_sub = n.subscribe("ariac/logical_camera_bin2",1,bin2Callback);
+	ros::Subscriber bin3_sub = n.subscribe("ariac/logical_camera_bin3",1,bin3Callback);
+	ros::Subscriber bin4_sub = n.subscribe("ariac/logical_camera_bin4",1,bin4Callback);
+	ros::Subscriber bin5_sub = n.subscribe("ariac/logical_camera_bin5",1,bin5Callback);
+	ros::Subscriber bin6_sub = n.subscribe("ariac/logical_camera_bin6",1,bin6Callback);
+	ros::Subscriber agv1_sub = n.subscribe("ariac/logical_camera_agv1",1,agv1Callback);
+	ros::Subscriber agv2_sub = n.subscribe("ariac/logical_camera_agv2",1,agv2Callback);
+	ros::Subscriber qc1_sub = n.subscribe("ariac/quality_control_sensor_1",1,qc1Callback);
+	ros::Subscriber qc2_sub = n.subscribe("ariac/quality_control_sensor_2",1,qc2Callback);
+	//Publishes joint trajectory to the arm1 command
+	ros::Publisher joint_trajectory_pub = n.advertise<trajectory_msgs::JointTrajectory>("ariac/arm1/arm/command",10);
+
+>>>>>>> 4f7902449b40e579d2e8dfa8f64daf10e1f3bfaa
 	//Current default location, will be updated later to be automatic based on part location
 	desired_position.position.x = 1;
 	desired_position.position.y = 1;
 	desired_position.position.z = 1;
+<<<<<<< HEAD
 	double currentTime;
+=======
+
+>>>>>>> 4f7902449b40e579d2e8dfa8f64daf10e1f3bfaa
 	//Tracks if competition has begun
 	service_call_succeeded = begin_client.call(begin_comp);
 
@@ -338,6 +387,10 @@ int main(int argc, char **argv)
 
   while(ros::ok())
 	{
+<<<<<<< HEAD
+=======
+		loop_rate.sleep();
+>>>>>>> 4f7902449b40e579d2e8dfa8f64daf10e1f3bfaa
 
 		//If we have orders
 		if(order_vector.size() > 0)
@@ -369,6 +422,7 @@ int main(int argc, char **argv)
 				}
 			}
 			//Calls joint trajectory to determine new position based on the set desired position. Currently set by default to 1,1,1
+<<<<<<< HEAD
 			//jointTrajectory();
 			//Publishes the new location to gazebo and executes the move
 			//joint_trajectory_pub.publish(joint_trajectory);
@@ -387,6 +441,11 @@ int main(int argc, char **argv)
 				camera_frame_vector.erase(camera_frame_vector.begin());
 				ros::Duration(1.5).sleep();
 			}
+=======
+			jointTrajectory();
+			//Publishes the new location to gazebo and executes the move
+			joint_trajectory_pub.publish(joint_trajectory);
+>>>>>>> 4f7902449b40e579d2e8dfa8f64daf10e1f3bfaa
 		}
 		ros::Duration(0.1).sleep();
 	}
